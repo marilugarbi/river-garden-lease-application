@@ -4,7 +4,7 @@ export const steps = [
     eyebrow: "Step 1 of 6",
     description: "Start with the unit, lease dates, and everyone who will live there.",
     fields: [
-      ["unitAddress", "Address of unit being leased", "text", true],
+      ["unitAddress", "Address of unit being leased", "address", true],
       ["occupancyDate", "Date of occupancy", "date", true],
       ["leaseStart", "Lease starting date", "date", true],
       ["leaseEnd", "Lease ending date", "date", true],
@@ -65,10 +65,15 @@ export const steps = [
     eyebrow: "Step 4 of 6",
     description: "Provide at least five years. Add the dates directly into each entry.",
     fields: [
-      ["currentResidence", "Current address, city/state/ZIP, phone, dates of residency", "textarea", true],
-      ["currentLandlord", "Current landlord: name, address, phone", "textarea", true],
-      ["priorResidence", "Prior address, city/state/ZIP, dates of residency", "textarea", true],
-      ["priorLandlord", "Prior landlord: name, address, phone", "textarea", true]
+      ["currentStreet", "Current street address", "address", true],
+      ["currentCityStateZip", "Current city, state, ZIP", "text", true],
+      ["currentPhone", "Current residence phone", "tel", true],
+      ["currentDates", "Current dates of residency", "text", true],
+      ["currentLandlord", "Current landlord: name, address, phone", "textarea"],
+      ["priorStreet", "Prior street address", "address", true],
+      ["priorCityStateZip", "Prior city, state, ZIP", "text", true],
+      ["priorDates", "Prior dates of residency", "text", true],
+      ["priorLandlord", "Prior landlord: name, address, phone", "textarea"]
     ]
   },
   {

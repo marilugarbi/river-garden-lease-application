@@ -8,7 +8,8 @@ A privacy-first, static web application that guides prospective tenants through 
 - Keeps all personal information in browser memory only.
 - Generates a completed copy of the HOA packet locally in the browser.
 - Creates prefilled email and text requests for recommenders.
-- Gives recommenders a short form that generates a finished recommendation letter.
+- Gives recommenders a short form that opens a completed email addressed to Marilu.
+- Supports Google Places address autocomplete when a browser API key is configured.
 - Shows the required attachments, fees, signatures, and timing before submission.
 
 ## Privacy model
@@ -25,6 +26,8 @@ npm run dev
 ## GitHub Pages
 
 The included GitHub Actions workflow builds and deploys the site after a push to `main`. In the repository settings, select **GitHub Actions** as the Pages source.
+
+For Google address autocomplete, add a repository Actions secret named `GOOGLE_MAPS_API_KEY`. Restrict the Google Maps browser key by HTTP referrer to the final GitHub Pages domain and enable the Maps JavaScript API and Places API. Without the key, applicants can still open each entered address in Google Maps for verification.
 
 ## Important
 

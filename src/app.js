@@ -1,11 +1,13 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { steps, requirements } from "./schema.js";
+import { steps } from "./schema.js";
 import "./style.css";
 
 const app = document.querySelector("#app");
 const state = Object.fromEntries(steps.flatMap((step) => step.fields.map(([key]) => [key, ""])));
+const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 let currentStep = 0;
 let theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+let googleMapsPromise;
 document.documentElement.dataset.theme = theme;
 
 const logo = `
@@ -32,7 +34,7 @@ function formatDate(value) {
 
 function fieldHtml(field) {
   const [key, label, type, required, options] = field;
-  const requiredMark = required ? "" : `<span class="optional">optional / use N/A</span>`;
+  const requiredMark = required ? "" : `<span class="optional">optional / leave blank</span>`;
   if (type === "select") {
     return `<div class="field">
       <label for="${key}">${label}${requiredMark}</label>
@@ -44,11 +46,14 @@ function fieldHtml(field) {
     </div>`;
   }
   const tag = type === "textarea" ? "textarea" : "input";
-  const attrs = tag === "input" ? `type="${type}" value="${escapeHtml(state[key])}"` : "";
+  const inputType = type === "address" ? "text" : type;
+  const addressAttrs = type === "address" ? `data-google-address="${key}" autocomplete="street-address"` : "";
+  const attrs = tag === "input" ? `type="${inputType}" value="${escapeHtml(state[key])}" ${addressAttrs}` : "";
   const content = tag === "textarea" ? escapeHtml(state[key]) : "";
   return `<div class="field">
     <label for="${key}">${label}${requiredMark}</label>
     <${tag} id="${key}" name="${key}" ${attrs} ${required ? "required" : ""} autocomplete="off" data-testid="input-${key}">${content}</${tag}>
+    ${type === "address" ? `<button class="map-verify" type="button" data-verify-address="${key}">Verify in Google Maps ↗</button>` : ""}
     <span class="error-text" id="error-${key}" role="alert"></span>
   </div>`;
 }
@@ -92,6 +97,13 @@ function header() {
   </header>`;
 }
 
+function photoBand() {
+  return `<figure class="photo-band">
+    <img src="./river-garden-waterfront.webp" alt="River Garden condominiums viewed from the waterfront dock" width="1800" height="1350" decoding="async">
+    <figcaption>River Garden · Fort Myers waterfront</figcaption>
+  </figure>`;
+}
+
 function rail() {
   return `<aside class="rail" aria-label="Application progress">
     <h2>Your application</h2>
@@ -111,7 +123,7 @@ function rail() {
 
 function renderStep() {
   const step = steps[currentStep];
-  app.innerHTML = `<div class="shell">${header()}
+  app.innerHTML = `<div class="shell">${header()}${photoBand()}
     <main id="main" class="layout">
       ${rail()}
       <section class="main-card" aria-labelledby="pageTitle">
@@ -166,45 +178,64 @@ function recommendationUrl() {
 function renderReview() {
   const percent = completionPercent();
   const link = recommendationUrl();
-  const body = `Hello! I’m applying to lease ${state.unitAddress || "a unit"} at River Garden Condominiums. The HOA requires two letters of recommendation. I made a short form so you do not have to write one from scratch: ${link} Thank you!`;
+  const body = `Hello! I’m applying to lease ${state.unitAddress || "a unit"} at River Garden Condominiums. The HOA requires two letters of recommendation. Please use this short template so you do not have to write one from scratch. When you finish, it will open an email addressed directly to Marilu: ${link} Thank you!`;
   const emailHref = `mailto:?subject=${encodeURIComponent(`Recommendation for ${state.applicantName || "River Garden applicant"}`)}&body=${encodeURIComponent(body)}`;
   const smsHref = `sms:?&body=${encodeURIComponent(body)}`;
-  app.innerHTML = `<div class="shell">${header()}
+  const applicationEmail = `mailto:marilugarbi@pm.me?subject=${encodeURIComponent(`River Garden application — ${state.applicantName || "Applicant"}`)}&body=${encodeURIComponent(`Hello Marilu,\n\nAttached are my signed River Garden application, driver’s-license pictures for all residents, and support-animal documents if applicable.\n\nApplicant: ${state.applicantName || ""}\nUnit: ${state.unitAddress || ""}\nMove-in date: ${formatDate(state.occupancyDate)}\n\nThank you.`)}`;
+  app.innerHTML = `<div class="shell">${header()}${photoBand()}
     <main id="main" class="layout">
       ${rail()}
       <section class="main-card" aria-labelledby="pageTitle">
         <div class="card-head">
-          <div class="eyebrow">Ready to assemble</div>
-          <h1 id="pageTitle">Review, download, then attach</h1>
-          <p>The website can prepare the form, but the HOA still needs signatures, identification, fees, a signed lease, and two recommendation letters.</p>
+          <div class="eyebrow">Application next steps</div>
+          <h1 id="pageTitle">Finish and send your application</h1>
+          <p>Complete these three steps so Marilu receives the full package for Board review.</p>
         </div>
         <div class="completion">
           <div>
             <div class="eyebrow">${percent}% of required answers present</div>
             <div class="progress" aria-label="${percent}% complete"><span style="width:${percent}%"></span></div>
           </div>
-          <div class="export-grid">
-            <article class="export-panel">
-              <h2>Official HOA packet</h2>
-              <p>Downloads the original 13 pages with your answers and initials placed on them.</p>
-              <button class="button primary" id="downloadHoa" data-testid="button-download-hoa">Download filled PDF</button>
-            </article>
-            <article class="export-panel">
-              <h2>Ask recommenders</h2>
-              <p>Send a prefilled link. They answer four short prompts and download a finished letter.</p>
-              <button class="button secondary" id="copyRequest" data-testid="button-copy-request">Copy request</button>
-              <div class="share-row">
-                <a class="button secondary" href="${emailHref}" data-testid="link-email-request">Email</a>
-                <a class="button secondary" href="${smsHref}" data-testid="link-text-request">Text</a>
+          <ol class="next-steps">
+            <li class="export-panel">
+              <div class="step-badge">1</div>
+              <div>
+                <h2>Forward the recommendation link</h2>
+                <p>Send this link to the people giving you letters of recommendation. They can fill out the template, and it’ll open a completed email to me directly, ready for them to send.</p>
+                <label class="sr-only" for="recommendationLink">Recommendation form link</label>
+                <input id="recommendationLink" value="${escapeHtml(link)}" readonly data-testid="input-recommendation-link">
+                <div class="share-row">
+                  <button class="button secondary" id="copyRequest" data-testid="button-copy-request">Copy request</button>
+                  <a class="button secondary" href="${emailHref}" data-testid="link-email-request">Email</a>
+                  <a class="button secondary" href="${smsHref}" data-testid="link-text-request">Text</a>
+                </div>
               </div>
-            </article>
-          </div>
+            </li>
+            <li class="export-panel">
+              <div class="step-badge">2</div>
+              <div>
+                <h2>Download, sign, and email</h2>
+                <p>Download the filled PDF, sign it, and email it to <strong>marilugarbi@pm.me</strong> along with a driver’s-license picture for every resident and any support-animal documents for your pet, if applicable.</p>
+                <div class="share-row two">
+                  <button class="button primary" id="downloadHoa" data-testid="button-download-hoa">Download filled PDF</button>
+                  <a class="button secondary" href="${applicationEmail}" data-testid="link-email-application">Email Marilu</a>
+                </div>
+              </div>
+            </li>
+            <li class="export-panel">
+              <div class="step-badge">3</div>
+              <div>
+                <h2>Pay $216</h2>
+                <p>Pay both required fees, $150 application plus $66 credit and criminal background check, via Cash App or Venmo to <strong>@mascottproperties</strong>.</p>
+                <div class="share-row two">
+                  <a class="button primary" href="https://cash.app/$mascottproperties" target="_blank" rel="noopener" data-testid="link-cashapp">Cash App</a>
+                  <a class="button secondary" href="https://account.venmo.com/u/mascottproperties" target="_blank" rel="noopener" data-testid="link-venmo">Venmo</a>
+                </div>
+              </div>
+            </li>
+          </ol>
           <div class="status" id="status" role="status" data-testid="status-export"></div>
-          <section>
-            <h2>Before submitting</h2>
-            <ul class="checklist">${requirements.map((item) => `<li>${item}</li>`).join("")}</ul>
-          </section>
-          <div class="notice"><strong>Confirm first:</strong><span>The packet names Alliant Property Management for fees, but also says Coastal Association Services receives information. Ask management for the current submission address, payment method, fee amounts, and current Sales & Rental Guidelines before sending Social Security numbers or ID copies.</span></div>
+          <div class="deadline-note">Allow 30 days for the Board to review your application after a complete submission, before you move in.</div>
         </div>
         <div class="card-actions">
           <button class="button secondary" id="backButton" data-testid="button-edit">Edit answers</button>
@@ -238,10 +269,66 @@ function bindCommon() {
     currentStep = target === "review" ? steps.length : Number(target);
     currentStep === steps.length ? renderReview() : renderStep();
   }));
+  document.querySelectorAll("[data-verify-address]").forEach((button) => button.addEventListener("click", () => {
+    const input = document.querySelector(`#${button.dataset.verifyAddress}`);
+    if (!input?.value.trim()) {
+      input?.focus();
+      return;
+    }
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(input.value)}`, "_blank", "noopener");
+  }));
+  attachGoogleAddressFields();
+}
+
+function loadGoogleMaps() {
+  if (!GOOGLE_MAPS_KEY) return Promise.resolve(false);
+  if (window.google?.maps?.places) return Promise.resolve(true);
+  if (googleMapsPromise) return googleMapsPromise;
+  googleMapsPromise = new Promise((resolve, reject) => {
+    window.__riverGardenMapsReady = () => resolve(true);
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_KEY)}&libraries=places&callback=__riverGardenMapsReady`;
+    script.async = true;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+  return googleMapsPromise;
+}
+
+async function attachGoogleAddressFields() {
+  if (!GOOGLE_MAPS_KEY) return;
+  try {
+    await loadGoogleMaps();
+    document.querySelectorAll("[data-google-address]").forEach((input) => {
+      if (input.dataset.googleBound) return;
+      input.dataset.googleBound = "true";
+      const autocomplete = new google.maps.places.Autocomplete(input, {
+        types: ["address"],
+        componentRestrictions: { country: "us" },
+        fields: ["formatted_address", "address_components"]
+      });
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (place.formatted_address) input.value = place.formatted_address;
+        if (input.id === "currentStreet" || input.id === "priorStreet") {
+          const prefix = input.id === "currentStreet" ? "current" : "prior";
+          const parts = {};
+          (place.address_components || []).forEach((component) => component.types.forEach((type) => { parts[type] = component.short_name; }));
+          const city = parts.locality || parts.postal_town || parts.sublocality || "";
+          const region = [city, parts.administrative_area_level_1, parts.postal_code].filter(Boolean).join(", ").replace(/, ([0-9]{5})$/, " $1");
+          const target = document.querySelector(`#${prefix}CityStateZip`);
+          if (target) target.value = region;
+        }
+      });
+    });
+  } catch (error) {
+    console.warn("Google address autocomplete unavailable", error);
+  }
 }
 
 function drawValue(page, font, value, x, y, size = 8, maxWidth = 220) {
-  const text = safe(value);
+  const text = safe(value, "");
+  if (!text) return;
   const limited = text.length > 110 ? `${text.slice(0, 107)}...` : text;
   page.drawText(limited, { x, y, size, font, color: rgb(0.05, 0.12, 0.11), maxWidth });
 }
@@ -356,13 +443,13 @@ async function downloadHoaPdf() {
     const pr2 = splitCombined(state.personalRef2, 4);
     drawValue(p5, font, pr2[0], 69, 712, 8, 475); drawValue(p5, font, pr2[1], 75, 675, 8, 470);
     drawValue(p5, font, pr2[2], 104, 638, 8, 440); drawValue(p5, font, pr2[3], 110, 600, 8, 260);
-    const cr = splitCombined(state.currentResidence, 4), cl = splitCombined(state.currentLandlord, 3);
-    drawValue(p5, font, cr[0], 140, 515, 8, 405); drawValue(p5, font, cr[1], 110, 486, 8, 260);
-    drawValue(p5, font, cr[2], 425, 486, 8, 120); drawValue(p5, font, cr[3], 435, 351, 8, 110);
+    const cl = splitCombined(state.currentLandlord, 3);
+    drawValue(p5, font, state.currentStreet, 140, 515, 8, 405); drawValue(p5, font, state.currentCityStateZip, 110, 486, 8, 300);
+    drawValue(p5, font, state.currentPhone, 425, 486, 8, 120); drawValue(p5, font, state.currentDates, 435, 351, 8, 110);
     drawValue(p5, font, state.applicantEmail, 145, 452, 8, 400);
     drawValue(p5, font, cl[0], 160, 420, 8, 385); drawValue(p5, font, cl[1], 75, 389, 8, 470); drawValue(p5, font, cl[2], 125, 351, 8, 270);
-    const prior = splitCombined(state.priorResidence, 3), pl = splitCombined(state.priorLandlord, 3);
-    drawValue(p5, font, prior[0], 140, 311, 8, 405); drawValue(p5, font, prior[1], 110, 280, 8, 300); drawValue(p5, font, prior[2], 435, 205, 8, 110);
+    const pl = splitCombined(state.priorLandlord, 3);
+    drawValue(p5, font, state.priorStreet, 140, 311, 8, 405); drawValue(p5, font, state.priorCityStateZip, 110, 280, 8, 300); drawValue(p5, font, state.priorDates, 435, 205, 8, 110);
     drawValue(p5, font, pl[0], 175, 242, 8, 370); drawValue(p5, font, pl[1], 265, 242, 8, 280); drawValue(p5, font, pl[2], 125, 205, 8, 270);
 
     const p6 = pages[5];
@@ -410,13 +497,13 @@ function renderRecommender() {
   const params = new URLSearchParams(location.search);
   const applicant = params.get("applicant") || "";
   const unit = params.get("unit") || "";
-  app.innerHTML = `<div class="shell">${header()}
+  app.innerHTML = `<div class="shell">${header()}${photoBand()}
     <main id="main" class="layout" style="grid-template-columns:minmax(0,760px);justify-content:center">
       <section class="main-card" aria-labelledby="pageTitle">
         <div class="card-head">
           <div class="eyebrow">Recommendation letter</div>
           <h1 id="pageTitle">Help ${escapeHtml(applicant || "this applicant")} without starting from scratch</h1>
-          <p>Answer four short prompts. A polished letter will download for you to sign and return to the applicant.</p>
+          <p>Answer four short prompts. The form will prepare an email addressed directly to Marilu for you to review and send.</p>
           <div class="notice"><strong>Private:</strong><span>Your answers stay in this tab and are used only to create the downloaded PDF.</span></div>
         </div>
         <form id="recommendForm">
@@ -429,7 +516,7 @@ function renderRecommender() {
             <div class="field"><label for="confidence">Anything else the Board should know?<span class="optional">optional</span></label><textarea id="confidence" data-testid="input-confidence"></textarea></div>
           </div>
           <div class="card-actions">
-            <span></span><button class="button primary" type="submit" data-testid="button-download-letter">Download recommendation</button>
+            <span></span><button class="button primary" type="submit" data-testid="button-email-letter">Email recommendation to Marilu</button>
           </div>
         </form>
         <div class="completion"><div class="status" id="status" role="status"></div></div>
@@ -445,61 +532,15 @@ function renderRecommender() {
   document.querySelector("#recommendForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const values = Object.fromEntries(["recommenderName", "recommenderContact", "relationship", "knownYears", "qualities", "confidence"].map((key) => [key, document.querySelector(`#${key}`).value]));
-    await downloadRecommendation(values, applicant, unit);
+    emailRecommendation(values, applicant, unit);
   });
 }
 
-async function downloadRecommendation(values, applicant, unit) {
+function emailRecommendation(values, applicant, unit) {
   const status = document.querySelector("#status");
-  status.textContent = "Preparing the recommendation letter…";
-  const pdf = await PDFDocument.create();
-  pdf.setTitle(`Letter of Recommendation for ${applicant}`);
-  pdf.setAuthor(values.recommenderName);
-  const page = pdf.addPage([612, 792]);
-  const regular = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const ink = rgb(0.07, 0.2, 0.18);
-  page.drawText("LETTER OF RECOMMENDATION", { x: 54, y: 722, size: 16, font: bold, color: ink });
-  page.drawText("River Garden Inc., A Condominium", { x: 54, y: 697, size: 10, font: regular, color: ink });
-  page.drawText(new Date().toLocaleDateString(), { x: 480, y: 722, size: 9, font: regular, color: ink });
-  const paragraphs = [
-    `To the River Garden Board of Directors:`,
-    `I am pleased to recommend ${applicant || "the applicant"} in connection with the application to lease ${unit || "a unit at River Garden Condominiums"}.`,
-    `I have known ${applicant || "the applicant"} for ${values.knownYears} as ${values.relationship}.`,
-    values.qualities,
-    values.confidence || `Based on my experience, I believe ${applicant || "the applicant"} would be a responsible and respectful resident who will care for the property and community.`,
-    `I recommend ${applicant || "the applicant"} without reservation. Please contact me if additional information would be helpful.`
-  ];
-  let y = 648;
-  paragraphs.forEach((paragraph) => {
-    const words = paragraph.split(/\s+/);
-    let line = "";
-    const lines = [];
-    words.forEach((word) => {
-      const next = line ? `${line} ${word}` : word;
-      if (regular.widthOfTextAtSize(next, 11) < 500) line = next;
-      else { lines.push(line); line = word; }
-    });
-    if (line) lines.push(line);
-    lines.forEach((entry) => {
-      page.drawText(entry, { x: 54, y, size: 11, font: regular, color: rgb(0.12, 0.14, 0.13) });
-      y -= 17;
-    });
-    y -= 13;
-  });
-  page.drawText("Sincerely,", { x: 54, y: Math.max(y - 4, 150), size: 11, font: regular, color: ink });
-  const sigY = Math.max(y - 65, 95);
-  page.drawLine({ start: { x: 54, y: sigY }, end: { x: 300, y: sigY }, thickness: 0.7, color: ink });
-  page.drawText(values.recommenderName, { x: 54, y: sigY - 18, size: 10, font: bold, color: ink });
-  page.drawText(values.recommenderContact, { x: 54, y: sigY - 34, size: 9, font: regular, color: ink });
-  const bytes = await pdf.save();
-  const blob = new Blob([bytes], { type: "application/pdf" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `Recommendation-${(applicant || "Applicant").replace(/[^a-z0-9]+/gi, "-")}.pdf`;
-  link.click();
-  URL.revokeObjectURL(link.href);
-  status.textContent = "Letter downloaded. Please review, sign, and return it to the applicant.";
+  const letter = `To the River Garden Board of Directors:\n\nI am pleased to recommend ${applicant || "the applicant"} in connection with the application to lease ${unit || "a unit at River Garden Condominiums"}.\n\nI have known ${applicant || "the applicant"} for ${values.knownYears} as ${values.relationship}.\n\n${values.qualities}\n\n${values.confidence || `Based on my experience, I believe ${applicant || "the applicant"} would be a responsible and respectful resident who will care for the property and community.`}\n\nI recommend ${applicant || "the applicant"} without reservation. Please contact me if additional information would be helpful.\n\nSincerely,\n${values.recommenderName}\n${values.recommenderContact}`;
+  status.textContent = "Opening an email addressed to Marilu. Please review it and press Send.";
+  window.location.href = `mailto:marilugarbi@pm.me?subject=${encodeURIComponent(`Letter of recommendation for ${applicant || "River Garden applicant"}`)}&body=${encodeURIComponent(letter)}`;
 }
 
 if (new URLSearchParams(location.search).get("recommend") === "1") renderRecommender();
