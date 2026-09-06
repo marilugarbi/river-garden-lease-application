@@ -80,11 +80,14 @@ function validateStep() {
 }
 
 function header() {
+  const themeIcon = theme === "dark"
+    ? `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`
+    : `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>`;
   return `<header class="topbar">
     <div class="brand">${logo}<span>River Garden Apply</span></div>
     <span class="privacy">Private by design · nothing is uploaded</span>
     <button class="icon-button" id="themeToggle" aria-label="Switch color mode" data-testid="button-theme">
-      ${theme === "dark" ? "☀" : "☾"}
+      ${themeIcon}
     </button>
   </header>`;
 }
@@ -309,10 +312,19 @@ async function downloadHoaPdf() {
     drawValue(p2, font, state.realtor, 207, 101, 8, 340);
 
     const p3 = pages[2];
-    drawWrapped(p3, font, state.emergency1, 95, 718, 455, 8, 2);
-    drawWrapped(p3, font, state.emergency2, 95, 662, 455, 8, 2);
+    const e1 = splitCombined(state.emergency1, 3);
+    const e2 = splitCombined(state.emergency2, 3);
+    drawValue(p3, font, e1[0], 95, 718, 8, 260);
+    drawValue(p3, font, e1[1], 392, 718, 8, 150);
+    drawValue(p3, font, e1[2], 95, 685, 8, 447);
+    drawValue(p3, font, e2[0], 95, 653, 8, 260);
+    drawValue(p3, font, e2[1], 392, 653, 8, 150);
+    drawValue(p3, font, e2[2], 95, 620, 8, 447);
     markYesNo(p3, font, state.hasPets, 177, 274, 586);
-    drawWrapped(p3, font, state.petDetails, 210, 565, 335, 8, 3);
+    const pet = splitCombined(state.petDetails, 3);
+    drawValue(p3, font, pet[0], 210, 565, 8, 335);
+    drawValue(p3, font, pet[1], 185, 544, 8, 360);
+    drawValue(p3, font, pet[2], 125, 523, 8, 120);
     markYesNo(p3, font, state.waterbed, 211, 318, 431);
     markYesNo(p3, font, state.smokes, 211, 318, 398);
     markYesNo(p3, font, state.ownsRealEstate, 211, 318, 365);
@@ -325,28 +337,52 @@ async function downloadHoaPdf() {
     drawWrapped(p3, font, state.felonyExplain, 141, 114, 405, 7.5, 2);
 
     const p4 = pages[3];
-    drawValue(p4, font, state.vehicle1, 104, 713, 8, 445);
-    drawValue(p4, font, state.vehicle2, 104, 656, 8, 445);
-    drawWrapped(p4, font, state.nearestRelative, 69, 548, 480, 7.5, 4);
-    drawWrapped(p4, font, state.workRef1, 69, 403, 480, 7.5, 4);
-    drawWrapped(p4, font, state.workRef2, 69, 287, 480, 7.5, 4);
-    drawWrapped(p4, font, state.personalRef1, 69, 144, 480, 7.5, 3);
+    const v1 = splitCombined(state.vehicle1, 3), v2 = splitCombined(state.vehicle2, 3);
+    drawValue(p4, font, v1[0], 104, 713, 8, 275); drawValue(p4, font, v1[1], 430, 713, 8, 115); drawValue(p4, font, v1[2], 140, 680, 8, 240);
+    drawValue(p4, font, v2[0], 104, 656, 8, 275); drawValue(p4, font, v2[1], 430, 656, 8, 115); drawValue(p4, font, v2[2], 140, 620, 8, 240);
+    const relative = splitCombined(state.nearestRelative, 4);
+    drawValue(p4, font, relative[0], 69, 568, 8, 475); drawValue(p4, font, relative[1], 75, 536, 8, 470);
+    drawValue(p4, font, relative[2], 104, 507, 8, 440); drawValue(p4, font, relative[3], 110, 478, 8, 260);
+    const wr1 = splitCombined(state.workRef1, 4), wr2 = splitCombined(state.workRef2, 4);
+    drawValue(p4, font, wr1[0], 69, 425, 8, 475); drawValue(p4, font, wr1[1], 64, 396, 8, 480);
+    drawValue(p4, font, wr1[2], 75, 367, 8, 470); drawValue(p4, font, wr1[3], 110, 339, 8, 260);
+    drawValue(p4, font, wr2[0], 69, 313, 8, 475); drawValue(p4, font, wr2[1], 64, 284, 8, 480);
+    drawValue(p4, font, wr2[2], 75, 255, 8, 470); drawValue(p4, font, wr2[3], 110, 227, 8, 260);
+    const pr1 = splitCombined(state.personalRef1, 4);
+    drawValue(p4, font, pr1[0], 69, 162, 8, 475); drawValue(p4, font, pr1[1], 75, 131, 8, 470); drawValue(p4, font, pr1[2], 104, 103, 8, 440);
 
     const p5 = pages[4];
-    drawWrapped(p5, font, state.personalRef2, 69, 731, 480, 7.5, 4);
-    drawWrapped(p5, font, state.currentResidence, 140, 515, 408, 7.5, 3);
-    drawWrapped(p5, font, state.currentLandlord, 160, 429, 388, 7.5, 3);
-    drawWrapped(p5, font, state.priorResidence, 140, 341, 408, 7.5, 3);
-    drawWrapped(p5, font, state.priorLandlord, 170, 253, 378, 7.5, 3);
+    drawValue(p5, font, pr1[3], 110, 752, 8, 260);
+    const pr2 = splitCombined(state.personalRef2, 4);
+    drawValue(p5, font, pr2[0], 69, 712, 8, 475); drawValue(p5, font, pr2[1], 75, 675, 8, 470);
+    drawValue(p5, font, pr2[2], 104, 638, 8, 440); drawValue(p5, font, pr2[3], 110, 600, 8, 260);
+    const cr = splitCombined(state.currentResidence, 4), cl = splitCombined(state.currentLandlord, 3);
+    drawValue(p5, font, cr[0], 140, 515, 8, 405); drawValue(p5, font, cr[1], 110, 486, 8, 260);
+    drawValue(p5, font, cr[2], 425, 486, 8, 120); drawValue(p5, font, cr[3], 435, 351, 8, 110);
+    drawValue(p5, font, state.applicantEmail, 145, 452, 8, 400);
+    drawValue(p5, font, cl[0], 160, 420, 8, 385); drawValue(p5, font, cl[1], 75, 389, 8, 470); drawValue(p5, font, cl[2], 125, 351, 8, 270);
+    const prior = splitCombined(state.priorResidence, 3), pl = splitCombined(state.priorLandlord, 3);
+    drawValue(p5, font, prior[0], 140, 311, 8, 405); drawValue(p5, font, prior[1], 110, 280, 8, 300); drawValue(p5, font, prior[2], 435, 205, 8, 110);
+    drawValue(p5, font, pl[0], 175, 242, 8, 370); drawValue(p5, font, pl[1], 265, 242, 8, 280); drawValue(p5, font, pl[2], 125, 205, 8, 270);
 
     const p6 = pages[5];
-    drawValue(p6, font, state.employmentStatus, 180, 718, 8, 160);
-    drawWrapped(p6, font, state.employer, 150, 665, 395, 7.5, 5);
-    drawValue(p6, font, state.spouseEmploymentStatus, 330, 560, 8, 200);
-    drawWrapped(p6, font, state.spouseEmployer, 190, 532, 355, 7.5, 5);
-    drawWrapped(p6, font, state.priorEmployer, 145, 364, 400, 7.5, 4);
-    drawWrapped(p6, font, state.spousePriorEmployer, 175, 246, 370, 7.5, 4);
-    drawWrapped(p6, font, state.bankReference, 155, 102, 390, 7.5, 3);
+    if (state.employmentStatus === "Employed") drawValue(p6, font, "X", 211, 718, 9, 10);
+    else if (state.employmentStatus === "Retired") drawValue(p6, font, "X", 462, 718, 9, 10);
+    else drawValue(p6, font, "X", 277, 718, 9, 10);
+    const emp = splitCombined(state.employer, 5);
+    drawValue(p6, font, emp[0], 180, 665, 8, 365); drawValue(p6, font, emp[1], 80, 627, 8, 465);
+    drawValue(p6, font, emp[2], 110, 589, 8, 275); drawValue(p6, font, emp[3], 150, 550, 8, 210); drawValue(p6, font, emp[4], 490, 550, 8, 55);
+    const semp = splitCombined(state.spouseEmployer, 5);
+    drawValue(p6, font, semp[0], 210, 569, 8, 335); drawValue(p6, font, semp[1], 80, 542, 8, 465);
+    drawValue(p6, font, semp[2], 110, 513, 8, 275); drawValue(p6, font, semp[3], 150, 486, 8, 210); drawValue(p6, font, semp[4], 490, 486, 8, 55);
+    const pe = splitCombined(state.priorEmployer, 4), spe = splitCombined(state.spousePriorEmployer, 4);
+    drawValue(p6, font, pe[0], 145, 431, 8, 400); drawValue(p6, font, pe[1], 150, 403, 8, 210);
+    drawValue(p6, font, pe[2], 80, 376, 8, 465); drawValue(p6, font, pe[3], 110, 348, 8, 275);
+    drawValue(p6, font, spe[0], 175, 315, 8, 370); drawValue(p6, font, spe[1], 150, 287, 8, 210);
+    drawValue(p6, font, spe[2], 80, 260, 8, 465); drawValue(p6, font, spe[3], 110, 231, 8, 275);
+    const bank = splitCombined(state.bankReference, 4);
+    drawValue(p6, font, bank[0], 155, 192, 8, 245); drawValue(p6, font, bank[1], 450, 192, 8, 95);
+    drawValue(p6, font, bank[2], 80, 163, 8, 300); drawValue(p6, font, bank[3], 455, 163, 8, 90);
 
     const p7 = pages[6];
     drawValue(p7, font, state.applicantName, 116, 531, 8, 430);
