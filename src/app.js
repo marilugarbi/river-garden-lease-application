@@ -335,8 +335,8 @@ function renderReview() {
             <li class="export-panel">
               <div class="step-badge">3</div>
               <div>
-                <h2>Pay $216</h2>
-                <p>Pay both required fees, $150 application plus $66 credit and criminal background check, via Cash App or Venmo to <strong>@mascottproperties</strong>.</p>
+                <h2>Pay $216 per adult applicant</h2>
+                <p>Each adult applicant pays $216, which includes the $150 application fee and the $66 credit and criminal background check fee. A married couple pays one combined $216 fee. Send payment via Cash App or Venmo to <strong>@mascottproperties</strong>.</p>
               </div>
             </li>
           </ol>
