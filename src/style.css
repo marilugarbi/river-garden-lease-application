@@ -164,6 +164,16 @@ button {
   padding: var(--space-4) var(--space-6) var(--space-12);
 }
 
+.layout > *,
+.main-card,
+.rail,
+.field,
+input,
+select,
+textarea {
+  min-width: 0;
+}
+
 .rail {
   position: sticky;
   top: var(--space-4);
@@ -465,11 +475,13 @@ textarea:focus {
   .layout {
     grid-template-columns: 1fr;
     padding-inline: var(--space-4);
+    width: 100%;
   }
 
   .rail {
     position: static;
     padding: var(--space-4);
+    width: 100%;
   }
 
   .rail h2,

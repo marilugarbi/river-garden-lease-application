@@ -208,7 +208,7 @@ function renderReview() {
         </div>
         <div class="card-actions">
           <button class="button secondary" id="backButton" data-testid="button-edit">Edit answers</button>
-          <a class="button secondary" href="/river-garden-application.pdf" download data-testid="link-blank-packet">Blank HOA packet</a>
+          <a class="button secondary" href="./river-garden-application.pdf" download data-testid="link-blank-packet">Blank HOA packet</a>
         </div>
       </section>
     </main>
