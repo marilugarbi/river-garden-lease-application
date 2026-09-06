@@ -339,6 +339,83 @@ h1 {
   font-weight: 600;
 }
 
+.choice-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice-field legend {
+  margin-bottom: var(--space-2);
+  font-weight: 600;
+}
+
+.yesno {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 150px));
+  gap: var(--space-3);
+}
+
+.yesno label {
+  position: relative;
+}
+
+.yesno input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.yesno span {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+  cursor: pointer;
+}
+
+.yesno input:checked + span {
+  border-color: var(--primary);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--primary);
+  color: var(--primary);
+}
+
+.yesno input:focus-visible + span {
+  outline: 3px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  outline-offset: 2px;
+}
+
+.pet-warning {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--warning) 42%, var(--line));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+}
+
+.pet-warning p {
+  color: var(--ink);
+}
+
+.agreement {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: fit-content;
+  font-weight: 700;
+}
+
+.agreement input {
+  width: 22px;
+  min-height: 22px;
+  accent-color: var(--primary);
+}
+
 .optional {
   margin-left: var(--space-2);
   color: var(--muted);
@@ -347,6 +424,8 @@ h1 {
 }
 
 .map-verify {
+  display: inline-flex;
+  align-items: center;
   justify-self: start;
   min-height: 44px;
   padding: 0;
@@ -355,6 +434,12 @@ h1 {
   color: var(--primary);
   font-size: var(--text-sm);
   font-weight: 700;
+}
+
+.map-verify[aria-disabled="true"] {
+  color: var(--muted);
+  cursor: not-allowed;
+  text-decoration: none;
 }
 
 input,

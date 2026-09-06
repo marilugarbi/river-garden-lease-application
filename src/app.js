@@ -1,5 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { steps } from "./schema.js";
+import { spouseKeys, steps } from "./schema.js";
 import "./style.css";
 
 const app = document.querySelector("#app");
@@ -17,7 +17,7 @@ const logo = `
     <path d="M11 10h11a6 6 0 0 1 0 12h-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
   </svg>`;
 
-function safe(value, fallback = "N/A") {
+function safe(value, fallback = "") {
   return String(value || fallback).trim();
 }
 
@@ -26,19 +26,106 @@ function splitCombined(value, count) {
   return Array.from({ length: count }, (_, index) => parts[index] || "");
 }
 
+function splitAddress(value) {
+  const parts = String(value || "").split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) return [String(value || "").trim(), ""];
+  return [parts.shift(), parts.join(", ")];
+}
+
 function formatDate(value) {
   if (!value) return "";
   const [year, month, day] = value.split("-");
   return `${month}/${day}/${year}`;
 }
 
+function formatMonth(value) {
+  if (!value || value === "Present") return value || "";
+  const [year, month] = value.split("-");
+  return year && month ? `${month}/${year}` : value;
+}
+
+function isVisible(key) {
+  if (spouseKeys.includes(key)) {
+    if (state.hasSpouse !== "Yes") return false;
+    if (["spouseEmployerName", "spouseEmployerAddress", "spouseEmployerPhone", "spouseEmployerLength", "spouseEmployerSalary"].includes(key)) return ["Employed", "Retired"].includes(state.spouseEmploymentStatus);
+    if (key === "spouseEmploymentUnderFive") return state.spouseEmploymentStatus === "Employed";
+    if (["spousePriorEmployerName", "spousePriorEmployerLength", "spousePriorEmployerAddress", "spousePriorEmployerPhone"].includes(key)) return state.spouseEmploymentStatus === "Employed" && state.spouseEmploymentUnderFive === "Yes";
+  }
+  if (key === "otherOccupantCount") return state.hasOtherOccupants === "Yes";
+  if (["occupant1Name", "occupant1Relationship", "occupant1Age"].includes(key)) return state.hasOtherOccupants === "Yes";
+  if (["occupant2Name", "occupant2Relationship", "occupant2Age"].includes(key)) return state.hasOtherOccupants === "Yes" && state.otherOccupantCount === "2";
+  if (["petDetails", "petAgreement"].includes(key)) return state.hasPets === "Yes";
+  if (key === "realEstateWhere") return state.ownsRealEstate === "Yes";
+  if (key === "evictedExplain") return state.evicted === "Yes";
+  if (key === "refusedRentExplain") return state.refusedRent === "Yes";
+  if (key === "felonyExplain") return state.felony === "Yes";
+  if (key === "vehicleCount") return state.hasVehicles === "Yes";
+  if (["vehicle1Type", "vehicle1Color", "vehicle1Plate"].includes(key)) return state.hasVehicles === "Yes";
+  if (["vehicle2Type", "vehicle2Color", "vehicle2Plate"].includes(key)) return state.hasVehicles === "Yes" && state.vehicleCount === "2";
+  if (["priorAddress", "priorFrom", "priorTo", "priorLandlordName", "priorLandlordAddress", "priorLandlordPhone"].includes(key)) return state.livedCurrentUnderFive === "Yes";
+  if (["employerName", "employerAddress", "employerPhone", "employerLength", "employerSalary"].includes(key)) return ["Employed", "Retired"].includes(state.employmentStatus);
+  if (key === "employmentUnderFive") return state.employmentStatus === "Employed";
+  if (["priorEmployerName", "priorEmployerLength", "priorEmployerAddress", "priorEmployerPhone"].includes(key)) return state.employmentStatus === "Employed" && state.employmentUnderFive === "Yes";
+  return true;
+}
+
+function isRequired(field) {
+  const [key, , , required] = field;
+  if (!isVisible(key)) return false;
+  if (required) return true;
+  if (spouseKeys.includes(key)) {
+    if (["spouseName", "spouseDob", "spouseDl", "spousePhone", "spouseEmail", "spouseEmploymentStatus", "spouseSsn", "spouseSignedDate"].includes(key)) return state.hasSpouse === "Yes";
+    if (["spouseEmployerName", "spouseEmployerAddress", "spouseEmployerPhone", "spouseEmployerLength", "spouseEmployerSalary"].includes(key)) return ["Employed", "Retired"].includes(state.spouseEmploymentStatus);
+    if (key === "spouseEmploymentUnderFive") return state.spouseEmploymentStatus === "Employed";
+    if (["spousePriorEmployerName", "spousePriorEmployerLength", "spousePriorEmployerAddress", "spousePriorEmployerPhone"].includes(key)) return state.spouseEmploymentUnderFive === "Yes";
+  }
+  if (key === "otherOccupantCount") return state.hasOtherOccupants === "Yes";
+  if (["occupant1Name", "occupant1Relationship", "occupant1Age"].includes(key)) return state.hasOtherOccupants === "Yes";
+  if (["occupant2Name", "occupant2Relationship", "occupant2Age"].includes(key)) return state.otherOccupantCount === "2";
+  if (["petDetails", "petAgreement"].includes(key)) return state.hasPets === "Yes";
+  if (key === "realEstateWhere") return state.ownsRealEstate === "Yes";
+  if (key === "evictedExplain") return state.evicted === "Yes";
+  if (key === "refusedRentExplain") return state.refusedRent === "Yes";
+  if (key === "felonyExplain") return state.felony === "Yes";
+  if (key === "vehicleCount" || ["vehicle1Type", "vehicle1Color", "vehicle1Plate"].includes(key)) return state.hasVehicles === "Yes";
+  if (["vehicle2Type", "vehicle2Color", "vehicle2Plate"].includes(key)) return state.vehicleCount === "2";
+  if (["priorAddress", "priorFrom", "priorTo"].includes(key)) return state.livedCurrentUnderFive === "Yes";
+  if (["employerName", "employerAddress", "employerPhone", "employerLength", "employerSalary"].includes(key)) return ["Employed", "Retired"].includes(state.employmentStatus);
+  if (key === "employmentUnderFive") return state.employmentStatus === "Employed";
+  if (["priorEmployerName", "priorEmployerLength", "priorEmployerAddress", "priorEmployerPhone"].includes(key)) return state.employmentUnderFive === "Yes";
+  return false;
+}
+
+function mapsHref(value) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value || "")}`;
+}
+
 function fieldHtml(field) {
   const [key, label, type, required, options] = field;
-  const requiredMark = required ? "" : `<span class="optional">optional / leave blank</span>`;
+  if (!isVisible(key)) return "";
+  const requiredNow = isRequired(field);
+  const requiredMark = requiredNow ? "" : `<span class="optional">optional / leave blank</span>`;
+  if (type === "yesno") {
+    return `<fieldset class="field choice-field">
+      <legend>${label}</legend>
+      <div class="yesno">
+        ${["Yes", "No"].map((option) => `<label><input type="radio" name="${key}" value="${option}" ${state[key] === option ? "checked" : ""} ${requiredNow ? "required" : ""} data-live-field data-testid="input-${key}-${option.toLowerCase()}"><span>${option}</span></label>`).join("")}
+      </div>
+      <span class="error-text" id="error-${key}" role="alert"></span>
+    </fieldset>`;
+  }
+  if (type === "agreement") {
+    return `<div class="pet-warning">
+      <strong>Pet requirements</strong>
+      <p>Two pets maximum, no heavier than 25 lbs unless they are emotional support animals. Evidence will be required with the application.</p>
+      <label class="agreement"><input id="${key}" name="${key}" type="checkbox" ${state[key] === "Yes" ? "checked" : ""} ${requiredNow ? "required" : ""} data-testid="input-${key}"><span>Agree</span></label>
+      <span class="error-text" id="error-${key}" role="alert"></span>
+    </div>`;
+  }
   if (type === "select") {
     return `<div class="field">
       <label for="${key}">${label}${requiredMark}</label>
-      <select id="${key}" name="${key}" ${required ? "required" : ""} data-testid="input-${key}">
+      <select id="${key}" name="${key}" ${requiredNow ? "required" : ""} data-live-field data-testid="input-${key}">
         <option value="">Choose one</option>
         ${options.map((option) => `<option value="${option}" ${state[key] === option ? "selected" : ""}>${option}</option>`).join("")}
       </select>
@@ -46,14 +133,15 @@ function fieldHtml(field) {
     </div>`;
   }
   const tag = type === "textarea" ? "textarea" : "input";
-  const inputType = type === "address" ? "text" : type;
+  const inputType = ["address", "presentOrMonth"].includes(type) ? "text" : type;
   const addressAttrs = type === "address" ? `data-google-address="${key}" autocomplete="street-address"` : "";
-  const attrs = tag === "input" ? `type="${inputType}" value="${escapeHtml(state[key])}" ${addressAttrs}` : "";
+  const initialsLimit = key === "initials" ? 'maxlength="6"' : "";
+  const attrs = tag === "input" ? `type="${inputType}" value="${escapeHtml(state[key])}" ${addressAttrs} ${initialsLimit}` : "";
   const content = tag === "textarea" ? escapeHtml(state[key]) : "";
   return `<div class="field">
     <label for="${key}">${label}${requiredMark}</label>
-    <${tag} id="${key}" name="${key}" ${attrs} ${required ? "required" : ""} autocomplete="off" data-testid="input-${key}">${content}</${tag}>
-    ${type === "address" ? `<button class="map-verify" type="button" data-verify-address="${key}">Verify in Google Maps ↗</button>` : ""}
+    <${tag} id="${key}" name="${key}" ${attrs} ${requiredNow ? "required" : ""} ${type === "presentOrMonth" ? `placeholder="Present or MM/YYYY"` : ""} data-testid="input-${key}">${content}</${tag}>
+    ${type === "address" ? `<a class="map-verify" href="${mapsHref(state[key])}" target="_blank" rel="noopener" data-address-link="${key}" aria-disabled="${state[key] ? "false" : "true"}">Check this address in Google Maps</a>` : ""}
     <span class="error-text" id="error-${key}" role="alert"></span>
   </div>`;
 }
@@ -64,23 +152,40 @@ function escapeHtml(value = "") {
 
 function saveVisibleFields() {
   steps[currentStep].fields.forEach(([key]) => {
-    const input = document.querySelector(`#${key}`);
-    if (input) state[key] = input.value;
+    const input = document.querySelector(`#${key}`) || document.querySelector(`[name="${key}"]:checked`);
+    if (!input) return;
+    state[key] = input.type === "checkbox" ? (input.checked ? "Yes" : "") : input.value;
+  });
+}
+
+function clearHiddenFields() {
+  steps.flatMap((step) => step.fields).forEach(([key]) => {
+    if (!isVisible(key)) state[key] = "";
   });
 }
 
 function validateStep() {
   saveVisibleFields();
   let valid = true;
-  steps[currentStep].fields.forEach(([key, , , required]) => {
+  steps[currentStep].fields.forEach((field) => {
+    const [key] = field;
+    if (!isVisible(key)) return;
     const error = document.querySelector(`#error-${key}`);
-    if (required && !state[key].trim()) {
+    if (isRequired(field) && !state[key].trim()) {
       error.textContent = "This answer is required by the application.";
       valid = false;
     } else {
       error.textContent = "";
     }
   });
+  if (currentStep === 0 && state.hasSpouse && state.hasOtherOccupants) {
+    const expected = 1 + (state.hasSpouse === "Yes" ? 1 : 0) + (state.hasOtherOccupants === "Yes" ? Number(state.otherOccupantCount || 0) : 0);
+    const error = document.querySelector("#error-peopleCount");
+    if (Number(state.peopleCount) !== expected) {
+      error.textContent = `This should be ${expected} based on the household answers below.`;
+      valid = false;
+    }
+  }
   return valid;
 }
 
@@ -145,6 +250,11 @@ function renderStep() {
     <footer class="footer-note">Convenience tool based on the River Garden Inc. lease application dated September 2023. It is not an official HOA portal or legal advice.</footer>
   </div>`;
   bindCommon();
+  document.querySelectorAll("[data-live-field]").forEach((input) => input.addEventListener("change", () => {
+    saveVisibleFields();
+    clearHiddenFields();
+    renderStep();
+  }));
   document.querySelector("#stepForm").addEventListener("submit", (event) => {
     event.preventDefault();
     if (!validateStep()) return;
@@ -160,7 +270,7 @@ function renderStep() {
 }
 
 function completionPercent() {
-  const requiredKeys = steps.flatMap((step) => step.fields.filter((field) => field[3]).map((field) => field[0]));
+  const requiredKeys = steps.flatMap((step) => step.fields.filter((field) => isRequired(field)).map((field) => field[0]));
   const completed = requiredKeys.filter((key) => state[key]?.trim()).length;
   return Math.round((completed / requiredKeys.length) * 100);
 }
@@ -227,18 +337,14 @@ function renderReview() {
               <div>
                 <h2>Pay $216</h2>
                 <p>Pay both required fees, $150 application plus $66 credit and criminal background check, via Cash App or Venmo to <strong>@mascottproperties</strong>.</p>
-                <div class="share-row two">
-                  <a class="button primary" href="https://cash.app/$mascottproperties" target="_blank" rel="noopener" data-testid="link-cashapp">Cash App</a>
-                  <a class="button secondary" href="https://account.venmo.com/u/mascottproperties" target="_blank" rel="noopener" data-testid="link-venmo">Venmo</a>
-                </div>
               </div>
             </li>
           </ol>
           <div class="status" id="status" role="status" data-testid="status-export"></div>
-          <div class="deadline-note">Allow 30 days for the Board to review your application after a complete submission, before you move in.</div>
+          <div class="deadline-note">Allow 30 days for the Board to review your application before you plan on moving in.</div>
         </div>
         <div class="card-actions">
-          <button class="button secondary" id="backButton" data-testid="button-edit">Edit answers</button>
+          <button class="button secondary" id="backButton" data-testid="button-edit">Back to application</button>
           <a class="button secondary" href="./river-garden-application.pdf" download data-testid="link-blank-packet">Blank HOA packet</a>
         </div>
       </section>
@@ -269,14 +375,22 @@ function bindCommon() {
     currentStep = target === "review" ? steps.length : Number(target);
     currentStep === steps.length ? renderReview() : renderStep();
   }));
-  document.querySelectorAll("[data-verify-address]").forEach((button) => button.addEventListener("click", () => {
-    const input = document.querySelector(`#${button.dataset.verifyAddress}`);
-    if (!input?.value.trim()) {
-      input?.focus();
-      return;
-    }
-    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(input.value)}`, "_blank", "noopener");
-  }));
+  document.querySelectorAll("[data-address-link]").forEach((link) => {
+    const input = document.querySelector(`#${link.dataset.addressLink}`);
+    const updateLink = () => {
+      const value = input?.value.trim() || "";
+      link.href = mapsHref(value);
+      link.setAttribute("aria-disabled", value ? "false" : "true");
+    };
+    input?.addEventListener("input", updateLink);
+    link.addEventListener("click", (event) => {
+      if (!input?.value.trim()) {
+        event.preventDefault();
+        input?.focus();
+      }
+    });
+    updateLink();
+  });
   attachGoogleAddressFields();
 }
 
@@ -310,15 +424,7 @@ async function attachGoogleAddressFields() {
       autocomplete.addListener("place_changed", () => {
         const place = autocomplete.getPlace();
         if (place.formatted_address) input.value = place.formatted_address;
-        if (input.id === "currentStreet" || input.id === "priorStreet") {
-          const prefix = input.id === "currentStreet" ? "current" : "prior";
-          const parts = {};
-          (place.address_components || []).forEach((component) => component.types.forEach((type) => { parts[type] = component.short_name; }));
-          const city = parts.locality || parts.postal_town || parts.sublocality || "";
-          const region = [city, parts.administrative_area_level_1, parts.postal_code].filter(Boolean).join(", ").replace(/, ([0-9]{5})$/, " $1");
-          const target = document.querySelector(`#${prefix}CityStateZip`);
-          if (target) target.value = region;
-        }
+        if (place.formatted_address) input.dispatchEvent(new Event("input", { bubbles: true }));
       });
     });
   } catch (error) {
@@ -334,7 +440,9 @@ function drawValue(page, font, value, x, y, size = 8, maxWidth = 220) {
 }
 
 function drawWrapped(page, font, value, x, y, maxWidth = 470, size = 7.5, maxLines = 2) {
-  const words = safe(value).split(/\s+/);
+  const text = safe(value, "");
+  if (!text) return;
+  const words = text.split(/\s+/);
   const lines = [];
   let line = "";
   words.forEach((word) => {
@@ -368,14 +476,14 @@ async function downloadHoaPdf() {
     pages.forEach((page) => initials && drawValue(page, font, initials, 455, 20, 8, 80));
 
     const p1 = pages[0];
-    drawValue(p1, font, state.applicantName, 338, 411, 8, 210);
-    drawValue(p1, font, state.applicantSsn, 34, 365, 8, 230);
-    drawValue(p1, font, formatDate(state.applicantDob), 338, 365, 8, 170);
-    drawValue(p1, font, formatDate(state.signedDate), 34, 326, 8, 180);
-    drawValue(p1, font, state.spouseName, 338, 248, 8, 210);
-    drawValue(p1, font, state.spouseSsn, 34, 205, 8, 230);
-    drawValue(p1, font, formatDate(state.spouseDob), 338, 205, 8, 170);
-    drawValue(p1, font, formatDate(state.signedDate), 34, 166, 8, 180);
+    drawValue(p1, font, state.applicantName, 338, 420, 8, 210);
+    drawValue(p1, font, state.applicantSsn, 34, 380, 8, 230);
+    drawValue(p1, font, formatDate(state.applicantDob), 338, 380, 8, 170);
+    drawValue(p1, font, formatDate(state.signedDate), 34, 341, 8, 180);
+    drawValue(p1, font, state.spouseName, 338, 301, 8, 210);
+    drawValue(p1, font, state.spouseSsn, 34, 249, 8, 230);
+    drawValue(p1, font, formatDate(state.spouseDob), 338, 249, 8, 170);
+    drawValue(p1, font, formatDate(state.spouseSignedDate), 34, 208, 8, 180);
 
     const p2 = pages[1];
     drawValue(p2, font, formatDate(state.occupancyDate), 144, 511, 8, 100);
@@ -393,100 +501,99 @@ async function downloadHoaPdf() {
     drawValue(p2, font, state.spouseDl, 155, 274, 8, 210);
     drawValue(p2, font, state.spousePhone, 430, 274, 8, 120);
     drawValue(p2, font, state.spouseEmail, 118, 246, 8, 430);
-    drawValue(p2, font, state.occupant1, 68, 193, 7.5, 480);
-    drawValue(p2, font, state.occupant2, 68, 164, 7.5, 480);
+    drawValue(p2, font, state.occupant1Name, 68, 193, 7.5, 220);
+    drawValue(p2, font, state.occupant1Relationship, 295, 193, 7.5, 190);
+    drawValue(p2, font, state.occupant1Age, 520, 193, 7.5, 35);
+    drawValue(p2, font, state.occupant2Name, 68, 164, 7.5, 220);
+    drawValue(p2, font, state.occupant2Relationship, 295, 164, 7.5, 190);
+    drawValue(p2, font, state.occupant2Age, 520, 164, 7.5, 35);
     drawValue(p2, font, state.ownerName, 152, 129, 8, 395);
     drawValue(p2, font, state.realtor, 207, 101, 8, 340);
 
     const p3 = pages[2];
-    const e1 = splitCombined(state.emergency1, 3);
-    const e2 = splitCombined(state.emergency2, 3);
-    drawValue(p3, font, e1[0], 95, 718, 8, 260);
-    drawValue(p3, font, e1[1], 392, 718, 8, 150);
-    drawValue(p3, font, e1[2], 95, 685, 8, 447);
-    drawValue(p3, font, e2[0], 95, 653, 8, 260);
-    drawValue(p3, font, e2[1], 392, 653, 8, 150);
-    drawValue(p3, font, e2[2], 95, 620, 8, 447);
-    markYesNo(p3, font, state.hasPets, 177, 274, 586);
+    drawValue(p3, font, state.emergency1Name, 105, 721, 8, 250);
+    drawValue(p3, font, state.emergency1Phone, 392, 721, 8, 150);
+    drawValue(p3, font, state.emergency1Address, 118, 694, 8, 425);
+    drawValue(p3, font, state.emergency2Name, 105, 666, 8, 250);
+    drawValue(p3, font, state.emergency2Phone, 392, 666, 8, 150);
+    drawValue(p3, font, state.emergency2Address, 118, 639, 8, 425);
+    markYesNo(p3, font, state.hasPets, 177, 274, 607);
     const pet = splitCombined(state.petDetails, 3);
-    drawValue(p3, font, pet[0], 210, 565, 8, 335);
-    drawValue(p3, font, pet[1], 185, 544, 8, 360);
-    drawValue(p3, font, pet[2], 125, 523, 8, 120);
-    markYesNo(p3, font, state.waterbed, 211, 318, 431);
-    markYesNo(p3, font, state.smokes, 211, 318, 398);
-    markYesNo(p3, font, state.ownsRealEstate, 211, 318, 365);
-    drawWrapped(p3, font, state.realEstateWhere, 171, 338, 375, 7.5, 1);
-    markYesNo(p3, font, state.evicted, 330, 403, 306);
-    drawWrapped(p3, font, state.evictedExplain, 141, 282, 405, 7.5, 2);
-    markYesNo(p3, font, state.refusedRent, 411, 474, 221);
-    drawWrapped(p3, font, state.refusedRentExplain, 141, 198, 405, 7.5, 2);
-    markYesNo(p3, font, state.felony, 270, 336, 137);
-    drawWrapped(p3, font, state.felonyExplain, 141, 114, 405, 7.5, 2);
+    drawValue(p3, font, pet[0], 220, 592, 8, 325);
+    drawValue(p3, font, pet[1], 185, 577, 8, 360);
+    drawValue(p3, font, pet[2], 125, 562, 8, 120);
+    markYesNo(p3, font, state.waterbed, 211, 318, 455);
+    markYesNo(p3, font, state.smokes, 211, 318, 427);
+    markYesNo(p3, font, state.ownsRealEstate, 211, 318, 399);
+    drawWrapped(p3, font, state.realEstateWhere, 171, 370, 375, 7.5, 1);
+    markYesNo(p3, font, state.evicted, 330, 403, 343);
+    drawWrapped(p3, font, state.evictedExplain, 141, 324, 405, 7.5, 2);
+    markYesNo(p3, font, state.refusedRent, 411, 474, 274);
+    drawWrapped(p3, font, state.refusedRentExplain, 141, 255, 405, 7.5, 2);
+    markYesNo(p3, font, state.felony, 270, 350, 204);
+    drawWrapped(p3, font, state.felonyExplain, 141, 186, 405, 7.5, 2);
 
     const p4 = pages[3];
-    const v1 = splitCombined(state.vehicle1, 3), v2 = splitCombined(state.vehicle2, 3);
-    drawValue(p4, font, v1[0], 104, 713, 8, 275); drawValue(p4, font, v1[1], 430, 713, 8, 115); drawValue(p4, font, v1[2], 140, 680, 8, 240);
-    drawValue(p4, font, v2[0], 104, 656, 8, 275); drawValue(p4, font, v2[1], 430, 656, 8, 115); drawValue(p4, font, v2[2], 140, 620, 8, 240);
-    const relative = splitCombined(state.nearestRelative, 4);
-    drawValue(p4, font, relative[0], 69, 568, 8, 475); drawValue(p4, font, relative[1], 75, 536, 8, 470);
-    drawValue(p4, font, relative[2], 104, 507, 8, 440); drawValue(p4, font, relative[3], 110, 478, 8, 260);
-    const wr1 = splitCombined(state.workRef1, 4), wr2 = splitCombined(state.workRef2, 4);
-    drawValue(p4, font, wr1[0], 69, 425, 8, 475); drawValue(p4, font, wr1[1], 64, 396, 8, 480);
-    drawValue(p4, font, wr1[2], 75, 367, 8, 470); drawValue(p4, font, wr1[3], 110, 339, 8, 260);
-    drawValue(p4, font, wr2[0], 69, 313, 8, 475); drawValue(p4, font, wr2[1], 64, 284, 8, 480);
-    drawValue(p4, font, wr2[2], 75, 255, 8, 470); drawValue(p4, font, wr2[3], 110, 227, 8, 260);
-    const pr1 = splitCombined(state.personalRef1, 4);
-    drawValue(p4, font, pr1[0], 69, 162, 8, 475); drawValue(p4, font, pr1[1], 75, 131, 8, 470); drawValue(p4, font, pr1[2], 104, 103, 8, 440);
+    drawValue(p4, font, state.vehicle1Type, 104, 713, 8, 275); drawValue(p4, font, state.vehicle1Color, 430, 713, 8, 115); drawValue(p4, font, state.vehicle1Plate, 140, 680, 8, 240);
+    drawValue(p4, font, state.vehicle2Type, 104, 656, 8, 275); drawValue(p4, font, state.vehicle2Color, 430, 656, 8, 115); drawValue(p4, font, state.vehicle2Plate, 140, 620, 8, 240);
+    drawValue(p4, font, state.relativeName, 73, 568, 8, 471); drawValue(p4, font, state.relativeAddress, 84, 536, 8, 461);
+    drawValue(p4, font, state.relativeRelationship, 108, 507, 8, 436); drawValue(p4, font, state.relativePhone, 115, 478, 8, 255);
+    drawValue(p4, font, state.workRef1Name, 73, 425, 8, 471); drawValue(p4, font, state.workRef1Title, 68, 396, 8, 476);
+    drawValue(p4, font, state.workRef1Address, 84, 367, 8, 461); drawValue(p4, font, state.workRef1Phone, 115, 339, 8, 255);
+    drawValue(p4, font, state.workRef2Name, 73, 313, 8, 471); drawValue(p4, font, state.workRef2Title, 68, 284, 8, 476);
+    drawValue(p4, font, state.workRef2Address, 84, 255, 8, 461); drawValue(p4, font, state.workRef2Phone, 115, 227, 8, 255);
+    drawValue(p4, font, state.personalRef1Name, 73, 162, 8, 471); drawValue(p4, font, state.personalRef1Address, 84, 131, 8, 461); drawValue(p4, font, state.personalRef1Relationship, 108, 103, 8, 436);
 
     const p5 = pages[4];
-    drawValue(p5, font, pr1[3], 110, 752, 8, 260);
-    const pr2 = splitCombined(state.personalRef2, 4);
-    drawValue(p5, font, pr2[0], 69, 712, 8, 475); drawValue(p5, font, pr2[1], 75, 675, 8, 470);
-    drawValue(p5, font, pr2[2], 104, 638, 8, 440); drawValue(p5, font, pr2[3], 110, 600, 8, 260);
-    const cl = splitCombined(state.currentLandlord, 3);
-    drawValue(p5, font, state.currentStreet, 140, 515, 8, 405); drawValue(p5, font, state.currentCityStateZip, 110, 486, 8, 300);
-    drawValue(p5, font, state.currentPhone, 425, 486, 8, 120); drawValue(p5, font, state.currentDates, 435, 351, 8, 110);
-    drawValue(p5, font, state.applicantEmail, 145, 452, 8, 400);
-    drawValue(p5, font, cl[0], 160, 420, 8, 385); drawValue(p5, font, cl[1], 75, 389, 8, 470); drawValue(p5, font, cl[2], 125, 351, 8, 270);
-    const pl = splitCombined(state.priorLandlord, 3);
-    drawValue(p5, font, state.priorStreet, 140, 311, 8, 405); drawValue(p5, font, state.priorCityStateZip, 110, 280, 8, 300); drawValue(p5, font, state.priorDates, 435, 205, 8, 110);
-    drawValue(p5, font, pl[0], 175, 242, 8, 370); drawValue(p5, font, pl[1], 265, 242, 8, 280); drawValue(p5, font, pl[2], 125, 205, 8, 270);
+    drawValue(p5, font, state.personalRef1Phone, 115, 752, 8, 255);
+    drawValue(p5, font, state.personalRef2Name, 73, 716, 8, 471); drawValue(p5, font, state.personalRef2Address, 84, 691, 8, 461);
+    drawValue(p5, font, state.personalRef2Relationship, 108, 664, 8, 436); drawValue(p5, font, state.personalRef2Phone, 115, 637, 8, 255);
+    const currentAddress = splitAddress(state.currentAddress);
+    drawValue(p5, font, currentAddress[0], 155, 525, 8, 390); drawValue(p5, font, currentAddress[1], 115, 498, 8, 295);
+    drawValue(p5, font, state.currentPhone, 430, 498, 8, 115);
+    drawValue(p5, font, state.applicantEmail, 150, 452, 8, 395);
+    drawValue(p5, font, state.currentLandlordName, 165, 442, 8, 380); drawValue(p5, font, state.currentLandlordAddress, 84, 417, 8, 461); drawValue(p5, font, state.currentLandlordPhone, 125, 389, 8, 270);
+    drawValue(p5, font, formatMonth(state.currentFrom), 445, 389, 8, 65); drawValue(p5, font, "Present", 522, 389, 8, 35);
+    const priorAddress = splitAddress(state.priorAddress);
+    drawValue(p5, font, priorAddress[0], 140, 358, 8, 405); drawValue(p5, font, priorAddress[1], 110, 330, 8, 430);
+    drawValue(p5, font, state.priorLandlordName, 175, 301, 8, 150); drawValue(p5, font, state.priorLandlordAddress, 325, 301, 8, 220); drawValue(p5, font, state.priorLandlordPhone, 125, 276, 8, 270);
+    drawValue(p5, font, formatMonth(state.priorFrom), 445, 276, 8, 65); drawValue(p5, font, formatMonth(state.priorTo), 522, 276, 8, 35);
 
     const p6 = pages[5];
-    if (state.employmentStatus === "Employed") drawValue(p6, font, "X", 211, 718, 9, 10);
-    else if (state.employmentStatus === "Retired") drawValue(p6, font, "X", 462, 718, 9, 10);
-    else drawValue(p6, font, "X", 277, 718, 9, 10);
-    const emp = splitCombined(state.employer, 5);
-    drawValue(p6, font, emp[0], 180, 665, 8, 365); drawValue(p6, font, emp[1], 80, 627, 8, 465);
-    drawValue(p6, font, emp[2], 110, 589, 8, 275); drawValue(p6, font, emp[3], 150, 550, 8, 210); drawValue(p6, font, emp[4], 490, 550, 8, 55);
-    const semp = splitCombined(state.spouseEmployer, 5);
-    drawValue(p6, font, semp[0], 210, 569, 8, 335); drawValue(p6, font, semp[1], 80, 542, 8, 465);
-    drawValue(p6, font, semp[2], 110, 513, 8, 275); drawValue(p6, font, semp[3], 150, 486, 8, 210); drawValue(p6, font, semp[4], 490, 486, 8, 55);
-    const pe = splitCombined(state.priorEmployer, 4), spe = splitCombined(state.spousePriorEmployer, 4);
-    drawValue(p6, font, pe[0], 145, 431, 8, 400); drawValue(p6, font, pe[1], 150, 403, 8, 210);
-    drawValue(p6, font, pe[2], 80, 376, 8, 465); drawValue(p6, font, pe[3], 110, 348, 8, 275);
-    drawValue(p6, font, spe[0], 175, 315, 8, 370); drawValue(p6, font, spe[1], 150, 287, 8, 210);
-    drawValue(p6, font, spe[2], 80, 260, 8, 465); drawValue(p6, font, spe[3], 110, 231, 8, 275);
-    const bank = splitCombined(state.bankReference, 4);
-    drawValue(p6, font, bank[0], 155, 192, 8, 245); drawValue(p6, font, bank[1], 450, 192, 8, 95);
-    drawValue(p6, font, bank[2], 80, 163, 8, 300); drawValue(p6, font, bank[3], 455, 163, 8, 90);
+    if (state.employmentStatus === "Employed") { drawValue(p6, font, "X", 211, 718, 9, 10); drawValue(p6, font, "X", 535, 718, 9, 10); }
+    else if (state.employmentStatus === "Retired") { drawValue(p6, font, "X", 287, 718, 9, 10); drawValue(p6, font, "X", 462, 718, 9, 10); }
+    else { drawValue(p6, font, "X", 287, 718, 9, 10); drawValue(p6, font, "X", 535, 718, 9, 10); }
+    drawValue(p6, font, state.employerName, 180, 665, 8, 365); drawValue(p6, font, state.employerAddress, 80, 627, 8, 465);
+    drawValue(p6, font, state.employerPhone, 110, 589, 8, 275); drawValue(p6, font, state.employerLength, 150, 550, 8, 210); drawValue(p6, font, state.employerSalary, 490, 550, 8, 55);
+    drawValue(p6, font, state.spouseEmployerName, 210, 569, 8, 335); drawValue(p6, font, state.spouseEmployerAddress, 80, 542, 8, 465);
+    drawValue(p6, font, state.spouseEmployerPhone, 110, 513, 8, 275); drawValue(p6, font, state.spouseEmployerLength, 150, 486, 8, 210); drawValue(p6, font, state.spouseEmployerSalary, 490, 486, 8, 55);
+    drawValue(p6, font, state.priorEmployerName, 145, 431, 8, 400); drawValue(p6, font, state.priorEmployerLength, 150, 403, 8, 210);
+    drawValue(p6, font, state.priorEmployerAddress, 80, 376, 8, 465); drawValue(p6, font, state.priorEmployerPhone, 110, 348, 8, 275);
+    drawValue(p6, font, state.spousePriorEmployerName, 175, 315, 8, 370); drawValue(p6, font, state.spousePriorEmployerLength, 150, 287, 8, 210);
+    drawValue(p6, font, state.spousePriorEmployerAddress, 80, 260, 8, 465); drawValue(p6, font, state.spousePriorEmployerPhone, 110, 231, 8, 275);
+    drawValue(p6, font, state.bankName, 160, 192, 8, 240); drawValue(p6, font, state.bankPhone, 450, 192, 8, 95);
+    drawValue(p6, font, state.bankAddress, 85, 163, 8, 295); drawValue(p6, font, state.bankHowLong, 455, 163, 8, 90);
 
     const p7 = pages[6];
-    drawValue(p7, font, state.applicantName, 116, 531, 8, 430);
-    drawValue(p7, font, state.spouseName, 108, 442, 8, 438);
+    drawValue(p7, font, state.applicantName, 116, 564, 8, 430);
+    drawValue(p7, font, state.spouseName, 108, 479, 8, 438);
 
     const p13 = pages[12];
-    drawValue(p13, font, formatDate(state.signedDate), 285, 615, 8, 110);
-    if (state.spouseName) drawValue(p13, font, formatDate(state.signedDate), 285, 545, 8, 110);
+    drawValue(p13, font, formatDate(state.signedDate), 285, 632, 8, 110);
+    if (state.spouseName) drawValue(p13, font, formatDate(state.spouseSignedDate), 285, 562, 8, 110);
 
     const bytes = await pdf.save();
     const blob = new Blob([bytes], { type: "application/pdf" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `River-Garden-Application-${safe(state.applicantName, "Applicant").replace(/[^a-z0-9]+/gi, "-")}.pdf`;
+    link.target = "_blank";
+    link.rel = "noopener";
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(link.href);
-    status.textContent = "PDF downloaded. Print, review every page, and sign the required lines.";
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+    status.textContent = "PDF downloaded. This page will stay open so you can return to the application, review answers, and make changes.";
   } catch (error) {
     console.error(error);
     status.textContent = "The PDF could not be created. Please try again or download the blank packet.";
