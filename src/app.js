@@ -328,7 +328,7 @@ function renderReview() {
                 <p>Download the filled PDF, sign it, and email it to <strong>marilugarbi@pm.me</strong> along with a driver’s-license picture for every resident and any support-animal documents for your pet, if applicable.</p>
                 <div class="share-row two">
                   <button class="button primary" id="downloadHoa" data-testid="button-download-hoa">Download filled PDF</button>
-                  <a class="button secondary" href="${applicationEmail}" data-testid="link-email-application">Email Marilu</a>
+                  <a class="button secondary" href="${applicationEmail}" data-testid="link-email-application">Email Mascott Properties</a>
                 </div>
               </div>
             </li>
@@ -623,7 +623,7 @@ function renderRecommender() {
             <div class="field"><label for="confidence">Anything else the Board should know?<span class="optional">optional</span></label><textarea id="confidence" data-testid="input-confidence"></textarea></div>
           </div>
           <div class="card-actions">
-            <span></span><button class="button primary" type="submit" data-testid="button-email-letter">Email recommendation to Marilu</button>
+            <span></span><button class="button primary" type="submit" data-testid="button-email-letter">Email recommendation to Mascott Properties</button>
           </div>
         </form>
         <div class="completion"><div class="status" id="status" role="status"></div></div>
